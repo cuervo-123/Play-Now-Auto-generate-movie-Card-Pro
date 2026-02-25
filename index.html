@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>🎬 Play Now · TMDB Card Builder + 4 Monitors</title>
+  <meta name="color-scheme" content="dark">
+  <style>
+    :root {
+      --bg:#0b1220; --fg:#e9eef5; --muted:#9fb1cb;
+      --panel:#111826; --line:#233044;
+      --accent:#1f9d57; --warn:#ffd166;
+      --chip:#0f1726; --chip-b:#2a3850;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:linear-gradient(180deg,#0b1220 0%,#0b0f17 100%);
+      color:var(--fg);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial
+    }
+    header{
+      position:sticky;top:0;z-index:20;
+      background:rgba(17,24,38,.8);
+      backdrop-filter:blur(8px);
+      border-bottom:1px solid var(--line)
+    }
+    .wrap{max-width:1300px;margin:0 auto;padding:16px}
+    h1{margin:0;font-size:18px;font-weight:800}
+    .sub{font-size:12px;color:var(--muted)}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .btn{
+      display:inline-flex;align-items:center;gap:8px;
+      background:#182338;border:1px solid #273651;
+      color:var(--fg);padding:10px 14px;border-radius:12px;
+      font-weight:700;cursor:pointer;text-decoration:none
+    }
+    .btn.primary{background:var(--accent);border-color:#1c8b4e}
+    .btn.ghost{background:transparent}
+    .btn.warn{background:#332a11;border-color:#5b4a1d;color:#ffd166}
+
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:16px}
+    textarea{
+      width:100%;min-height:160px;resize:vertical;
+      background:#0f1726;color:#dbe5f6;
+      border:1px solid #233044;border-radius:12px;padding:12px;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace
+    }
+    .fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field input{
+      height:40px;background:#0f1726;color:#dbe5f6;
+      border:1px solid #233044;border-radius:10px;padding:0 10px
+    }
+    .field small{color:var(--muted)}
+    .cards{display:grid;gap:16px;margin-top:16px}
+    .card{
+      display:grid;grid-template-columns:180px 1fr;gap:16px;
+      background:var(--panel);border:1px solid var(--line);
+      border-radius:14px;padding:16px;position:relative;overflow:hidden
+    }
+    .card:hover{box-shadow:0 10px 28px rgba(0,0,0,.35);border-color:#35507a}
+    .poster{
+      width:100%;height:260px;object-fit:cover;border-radius:12px;
+      border:1px solid #1f2a3f;background:#0f1726
+    }
+    .title{font-size:20px;font-weight:800;margin:2px 0 6px;line-height:1.2}
+    .imdb{margin-left:8px;color:var(--warn);font-weight:800}
+    .chips{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0}
+    .chip{
+      font-size:12px;color:#cbd5e1;border:1px solid var(--chip-b);
+      background:var(--chip);padding:4px 8px;border-radius:999px
+    }
+    .desc{line-height:1.5;margin:10px 0;color:#dbe5f6}
+    .meta{font-size:12px;color:#9fb1cb;margin-top:6px}
+    .meta b{color:#cfe0ff}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+    .play{
+      display:inline-flex;align-items:center;gap:8px;
+      background:var(--accent);padding:10px 14px;border-radius:12px;
+      font-weight:800;color:#fff;text-decoration:none;border:1px solid #1c8b4e
+    }
+    .menu{display:flex;gap:8px;flex-wrap:wrap}
+    .menu .btn{font-weight:700}
+
+    /* Monitores */
+    .monitors{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:18px 0 8px}
+    .monitor{background:#0e1424;border:1px solid #233044;border-radius:14px;padding:12px;position:relative;overflow:hidden}
+    .monitor h3{margin:0 0 8px;font-size:14px}
+    .stage{
+      aspect-ratio:16/9;background:#0b0f17;border:1px dashed #2a3850;
+      border-radius:12px;display:grid;place-items:center;overflow:hidden
+    }
+    .stage iframe{width:100%;height:100%;border:0}
+    .stage video{width:100%;height:100%;background:#000}
+    .mon-ctrls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .drag-handle{position:absolute;right:8px;top:8px;font-size:12px;color:#99a9c6;opacity:.8}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}
+
+    .size-sm .card{grid-template-columns:140px 1fr}
+    .size-sm .poster{height:220px}
+    .size-lg .card{grid-template-columns:220px 1fr}
+    .size-lg .poster{height:320px}
+
+    /* mini badge */
+    .badge{
+      display:inline-flex;align-items:center;gap:6px;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06);
+      color:#cfe0ff;
+      padding:4px 8px;border-radius:999px;font-size:12px;
+      margin-left:8px
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🎬 Play Now Builder + 4 Monitors <span class="badge">TMDB Lookup</span></h1>
+    <div class="sub">Pega TMDB ID → auto poster + título + cast + géneros + sinopsis. Luego genera tarjeta Play Now.</div>
+    <div class="toolbar">
+      <button class="btn" id="btnDemo">Cargar demo</button>
+      <button class="btn" id="btnParse">Auto-parsear</button>
+      <button class="btn" id="btnTMDB">🔎 Buscar en TMDB</button>
+      <button class="btn primary" id="btnGenerate">Generar tarjeta</button>
+      <div class="switch" style="display:inline-flex;align-items:center;gap:8px">
+        <span>Tamaño tarjetas:</span>
+        <button class="btn ghost" data-size="sm">S</button>
+        <button class="btn ghost" data-size="md">M</button>
+        <button class="btn ghost" data-size="lg">L</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- MONITORES 1–4 -->
+  <section class="monitors" id="monitors">
+    <div class="monitor" data-mon="m1">
+      <div class="drag-handle">M1</div>
+      <h3>🖥️ Monitor 1</h3>
+      <div class="stage" id="stage-m1">
+        <div style="opacity:.65;text-align:center;padding:12px">
+          <div style="font-weight:700">Sin reproducción</div>
+          <div class="hint">Usa “Play M1” en una tarjeta o pega un link abajo.</div>
+        </div>
+      </div>
+      <div class="mon-ctrls">
+        <input id="url-m1" placeholder="Pega URL (embed, página, .m3u8)" style="flex:1;min-width:180px;height:40px;background:#0f1726;color:#dbe5f6;border:1px solid #233044;border-radius:10px;padding:0 10px">
+        <button class="btn primary" data-act="play" data-target="m1">▶ Reproducir</button>
+        <button class="btn" data-act="fs" data-target="m1">⛶ Fullscreen</button>
+        <button class="btn" data-act="stop" data-target="m1">⏹ Detener</button>
+        <a class="btn" data-act="pop" data-target="m1">↗ Pop-out</a>
+      </div>
+    </div>
+
+    <div class="monitor" data-mon="m2">
+      <div class="drag-handle">M2</div>
+      <h3>🖥️ Monitor 2</h3>
+      <div class="stage" id="stage-m2"><div style="opacity:.65;text-align:center;padding:12px"><b>Sin reproducción</b></div></div>
+      <div class="mon-ctrls">
+        <input id="url-m2" placeholder="Pega URL (embed, página, .m3u8)" style="flex:1;min-width:180px;height:40px;background:#0f1726;color:#dbe5f6;border:1px solid #233044;border-radius:10px;padding:0 10px">
+        <button class="btn primary" data-act="play" data-target="m2">▶ Reproducir</button>
+        <button class="btn" data-act="fs" data-target="m2">⛶ Fullscreen</button>
+        <button class="btn" data-act="stop" data-target="m2">⏹ Detener</button>
+        <a class="btn" data-act="pop" data-target="m2">↗ Pop-out</a>
+      </div>
+    </div>
+
+    <div class="monitor" data-mon="m3">
+      <div class="drag-handle">M3</div>
+      <h3>🖥️ Monitor 3</h3>
+      <div class="stage" id="stage-m3"><div style="opacity:.65;text-align:center;padding:12px"><b>Sin reproducción</b></div></div>
+      <div class="mon-ctrls">
+        <input id="url-m3" placeholder="Pega URL (embed, página, .m3u8)" style="flex:1;min-width:180px;height:40px;background:#0f1726;color:#dbe5f6;border:1px solid #233044;border-radius:10px;padding:0 10px">
+        <button class="btn primary" data-act="play" data-target="m3">▶ Reproducir</button>
+        <button class="btn" data-act="fs" data-target="m3">⛶ Fullscreen</button>
+        <button class="btn" data-act="stop" data-target="m3">⏹ Detener</button>
+        <a class="btn" data-act="pop" data-target="m3">↗ Pop-out</a>
+      </div>
+    </div>
+
+    <div class="monitor" data-mon="m4">
+      <div class="drag-handle">M4</div>
+      <h3>🖥️ Monitor 4</h3>
+      <div class="stage" id="stage-m4"><div style="opacity:.65;text-align:center;padding:12px"><b>Sin reproducción</b></div></div>
+      <div class="mon-ctrls">
+        <input id="url-m4" placeholder="Pega URL (embed, página, .m3u8)" style="flex:1;min-width:180px;height:40px;background:#0f1726;color:#dbe5f6;border:1px solid #233044;border-radius:10px;padding:0 10px">
+        <button class="btn primary" data-act="play" data-target="m4">▶ Reproducir</button>
+        <button class="btn" data-act="fs" data-target="m4">⛶ Fullscreen</button>
+        <button class="btn" data-act="stop" data-target="m4">⏹ Detener</button>
+        <a class="btn" data-act="pop" data-target="m4">↗ Pop-out</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUILDER -->
+  <section>
+    <div class="grid">
+      <section>
+        <h3 style="margin:8px 0">Pega descripción / JSON / texto o HTML</h3>
+        <textarea id="raw" placeholder="Puedes pegar:
+- tmdb_id: 1178602
+- o JSON { tmdb_id: 1178602, play: 'https://...' }
+- o texto con Title/Year/etc"></textarea>
+
+        <div class="fields" style="margin-top:12px">
+          <div class="field" style="grid-column:1/-1">
+            <label>TMDB API Key (se guarda en este navegador)</label>
+            <input id="fTMDBKey" placeholder="Pega tu TMDB API Key aquí (opcional pero recomendado)">
+            <small>Tip: si no quieres exponer key en público, luego lo movemos a un Worker/Proxy tuyo.</small>
+          </div>
+
+          <div class="field">
+            <label>TMDB ID</label>
+            <input id="fTMDB" placeholder="1178602">
+          </div>
+          <div class="field">
+            <label>IMDb</label>
+            <input id="fIMDb" placeholder="7.3/10">
+          </div>
+
+          <div class="field">
+            <label>Título</label>
+            <input id="fTitle" placeholder="Título">
+          </div>
+          <div class="field">
+            <label>Calidad</label>
+            <input id="fQuality" placeholder="HD / CAM / 4K">
+          </div>
+
+          <div class="field">
+            <label>Duración</label>
+            <input id="fDuration" placeholder="1h 59m">
+          </div>
+          <div class="field">
+            <label>Año</label>
+            <input id="fYear" placeholder="2025">
+          </div>
+
+          <div class="field">
+            <label>País</label>
+            <input id="fCountry" placeholder="United States">
+          </div>
+          <div class="field" style="grid-column:1/-1">
+            <label>Resumen</label>
+            <input id="fPlot" placeholder="Sinopsis / descripción">
+          </div>
+
+          <div class="field">
+            <label>Géneros</label>
+            <input id="fGenres" placeholder="Action, Thriller, Sci-Fi">
+          </div>
+          <div class="field">
+            <label>Actores</label>
+            <input id="fCast" placeholder="Nombre, Nombre, ...">
+          </div>
+
+          <div class="field">
+            <label>Director</label>
+            <input id="fDirector" placeholder="Nombre">
+          </div>
+          <div class="field">
+            <label>Poster (URL)</label>
+            <input id="fPoster" placeholder="https://...">
+          </div>
+
+          <div class="field" style="grid-column:1/-1">
+            <label>Play Now (URL)</label>
+            <input id="fPlay" placeholder="Pega aquí el link que tu app debe abrir (embed / m3u8 / mp4 / etc.)">
+            <small>El botón “Play Now” abre esta URL. Y los “Play M1..M4” lo cargan en los monitores.</small>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3 style="margin:8px 0">Tarjetas</h3>
+        <div class="cards" id="cards"></div>
+      </section>
+    </div>
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.8/dist/hls.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+
+<script>
+/* ------------------ Util ------------------ */
+const $ = s => document.querySelector(s);
+const cards = $('#cards');
+const raw = $('#raw');
+
+const FIELDS = {
+  tmdbKey: $('#fTMDBKey'),
+  tmdb: $('#fTMDB'),
+  title: $('#fTitle'),
+  imdb: $('#fIMDb'),
+  quality: $('#fQuality'),
+  duration: $('#fDuration'),
+  year: $('#fYear'),
+  country: $('#fCountry'),
+  plot: $('#fPlot'),
+  genres: $('#fGenres'),
+  cast: $('#fCast'),
+  director: $('#fDirector'),
+  poster: $('#fPoster'),
+  play: $('#fPlay')
+};
+
+function toast(msg){
+  const t=document.createElement('div');
+  t.textContent=msg;
+  t.style.cssText="position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#182338;border:1px solid #273651;padding:10px 14px;border-radius:10px;z-index:9999";
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),1600);
+}
+const escapeHtml = s => String(s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+/* ------------------ Persist TMDB Key ------------------ */
+const LS_KEY = "PLAYNOW_TMDB_KEY";
+FIELDS.tmdbKey.value = localStorage.getItem(LS_KEY) || "";
+FIELDS.tmdbKey.addEventListener('input', () => {
+  localStorage.setItem(LS_KEY, FIELDS.tmdbKey.value.trim());
+});
+
+/* ------------------ Parser ------------------ */
+function fillFields(data){
+  FIELDS.tmdb.value = data.tmdb_id || data.tmdb || "";
+  FIELDS.title.value = data.title || "";
+  FIELDS.imdb.value = data.imdb || "";
+  FIELDS.quality.value = data.quality || "";
+  FIELDS.duration.value = data.duration || "";
+  FIELDS.year.value = data.year || "";
+  FIELDS.country.value = data.country || "";
+  FIELDS.plot.value = data.plot || "";
+  FIELDS.genres.value = (data.genres || []).join(', ');
+  FIELDS.cast.value = (data.cast || []).join(', ');
+  FIELDS.director.value = data.director || "";
+  FIELDS.poster.value = data.poster || "";
+  FIELDS.play.value = data.play || "";
+}
+
+function htmlToPlain(txt){
+  try{
+    const doc=new DOMParser().parseFromString(txt,'text/html');
+    return (doc && doc.body) ? doc.body.textContent : txt;
+  }catch(_){
+    return txt.replace(/<[^>]*>/g,' ');
+  }
+}
+
+function parseRaw(txt){
+  // 1) JSON
+  try{ return normalizeFromObject(JSON.parse(txt)); }catch(_){}
+  // 2) texto/html
+  const plain = htmlToPlain(txt||'');
+  const clean = plain.replace(/\r/g,'').replace(/\u00A0/g,' ').trim();
+
+  const o = {};
+  const get = (re) => {
+    const m = clean.match(re);
+    return m ? (m[1]||m[2]||"").trim() : "";
+  };
+
+  o.tmdb_id = get(/(?:^|\n)\s*(?:tmdb_id|tmdb)\s*:\s*(\d+)/i) || "";
+  o.title = get(/(?:^|\n)\s*Title\s*:\s*(.+)/i) || (clean.split(/\n+/).map(s=>s.trim()).filter(Boolean)[0] || "");
+  o.imdb = get(/(?:^|\n)\s*IMDb\s*:\s*([^\n]+)/i) || "";
+  o.quality = get(/(?:^|\n)\s*(?:Quality|Calidad)\s*:\s*([^\n]+)/i) || "";
+  o.duration = get(/(?:^|\n)\s*(?:Duration|Duración)\s*:\s*([^\n]+)/i) || "";
+  o.year = get(/(?:^|\n)\s*Year\s*:\s*(\d{4})/i) || (clean.match(/\b(19|20)\d{2}\b/)||[])[0] || "";
+  o.country = get(/(?:^|\n)\s*(?:Country|País)\s*:\s*([^\n]+)/i) || "";
+  o.plot = get(/(?:^|\n)\s*(?:Plot|Resumen|Descripción|Sinopsis)\s*:\s*([\s\S]+?)(?:\n[A-ZÁÉÍÓÚÑ][\w ÁÉÍÓÚñ]+:\s*|$)/i) || "";
+
+  let genresRaw = get(/(?:^|\n)\s*(?:Genres|G[eé]neros?)\s*:\s*([^\n]+)/i) || "";
+  o.genres = genresRaw ? genresRaw.split(/[,/|•·]/).map(s=>s.trim()).filter(Boolean) : [];
+
+  let castRaw = get(/(?:^|\n)\s*(?:Cast|Actor(?:es)?)\s*:\s*([^\n]+)/i) || "";
+  o.cast = castRaw ? castRaw.split(/[,|•·/]|(?:\s+y\s+)/i).map(s=>s.trim()).filter(Boolean) : [];
+
+  o.director = get(/(?:^|\n)\s*Director\s*:\s*([^\n]+)/i) || "";
+  const urlInText = (clean.match(/\bhttps?:\/\/[^\s"'<>]+/g) || []);
+  o.poster = get(/(?:^|\n)\s*(?:Poster|Image|Poster URL)\s*:\s*([^\s]+)/i) || (urlInText.find(u=>/\.(jpg|jpeg|png|webp)(\?|#|$)/i.test(u))||"");
+  o.play = get(/(?:^|\n)\s*(?:Play|Play Now|Watch|Link)\s*:\s*([^\s]+)/i) || "";
+
+  return normalizeFromObject(o);
+}
+
+function normalizeFromObject(j){
+  const toArr = v => Array.isArray(v) ? v : (v ? String(v).split(/[,|]/).map(s=>s.trim()).filter(Boolean) : []);
+  return {
+    tmdb_id: String(j.tmdb_id || j.tmdb || j.tmdbId || ""),
+    title: j.title || j.name || "",
+    imdb: j.imdb || j.rating || "",
+    quality: j.quality || j.videoQuality || "",
+    duration: j.duration || j.runtime || "",
+    year: String(j.year || ""),
+    country: j.country || j.origin || "",
+    plot: j.plot || j.overview || j.description || "",
+    genres: toArr(j.genres),
+    cast: toArr(j.cast || j.actors),
+    director: j.director || "",
+    poster: j.poster || j.image || "",
+    play: j.play || j.url || j.link || ""
+  };
+}
+
+/* ------------------ TMDB Lookup ------------------ */
+const TMDB_IMG = "https://image.tmdb.org/t/p/w500";
+const TMDB_CACHE_PREFIX = "TMDB_CACHE_MOVIE_";
+
+async function tmdbFetchJson(url){
+  const res = await fetch(url, { cache:"no-store" });
+  if(!res.ok) throw new Error("HTTP " + res.status);
+  return await res.json();
+}
+
+function tmdbCacheGet(id){
+  try{
+    const raw = localStorage.getItem(TMDB_CACHE_PREFIX + id);
+    if(!raw) return null;
+    const obj = JSON.parse(raw);
+    // cache 7 días
+    if(Date.now() - obj.ts > 7*24*60*60*1000) return null;
+    return obj.data;
+  }catch(_){ return null; }
+}
+function tmdbCacheSet(id,data){
+  try{
+    localStorage.setItem(TMDB_CACHE_PREFIX + id, JSON.stringify({ ts: Date.now(), data }));
+  }catch(_){}
+}
+
+async function lookupTMDB(){
+  const id = (FIELDS.tmdb.value || "").trim();
+  const key = (FIELDS.tmdbKey.value || "").trim();
+  if(!id) return toast("Pon el TMDB ID primero.");
+  if(!key) return toast("Pon tu TMDB API Key (se guarda en tu navegador).");
+
+  const cached = tmdbCacheGet(id);
+  if(cached){
+    applyTMDBData(cached);
+    return toast("TMDB (cache) ✔");
+  }
+
+  toast("Buscando en TMDB…");
+  try{
+    const movieUrl = `https://api.themoviedb.org/3/movie/${encodeURIComponent(id)}?api_key=${encodeURIComponent(key)}&language=es-ES`;
+    const creditsUrl = `https://api.themoviedb.org/3/movie/${encodeURIComponent(id)}/credits?api_key=${encodeURIComponent(key)}&language=es-ES`;
+
+    const [movie, credits] = await Promise.all([
+      tmdbFetchJson(movieUrl),
+      tmdbFetchJson(creditsUrl)
+    ]);
+
+    const director = (credits.crew || []).find(x => x.job === "Director")?.name || "";
+    const cast = (credits.cast || []).slice(0, 8).map(x => x.name);
+
+    const data = {
+      tmdb_id: id,
+      title: movie.title || "",
+      year: (movie.release_date || "").slice(0,4),
+      country: (movie.production_countries || [])[0]?.name || "",
+      plot: movie.overview || "",
+      genres: (movie.genres || []).map(g => g.name),
+      director,
+      cast,
+      poster: movie.poster_path ? (TMDB_IMG + movie.poster_path) : ""
+    };
+
+    tmdbCacheSet(id, data);
+    applyTMDBData(data);
+    toast("TMDB ✔ (datos completos)");
+  }catch(err){
+    console.warn(err);
+    toast("Error TMDB. Revisa ID y API Key.");
+  }
+}
+
+function applyTMDBData(d){
+  if(d.title) FIELDS.title.value = d.title;
+  if(d.year) FIELDS.year.value = d.year;
+  if(d.country) FIELDS.country.value = d.country;
+  if(d.plot) FIELDS.plot.value = d.plot;
+  if(d.genres?.length) FIELDS.genres.value = d.genres.join(", ");
+  if(d.cast?.length) FIELDS.cast.value = d.cast.join(", ");
+  if(d.director) FIELDS.director.value = d.director;
+  if(d.poster) FIELDS.poster.value = d.poster;
+}
+
+/* ------------------ Card render ------------------ */
+function proxifyPoster(url){
+  if(!url) return "";
+  if(/^data:/.test(url) || /images\.weserv\.nl/.test(url)) return url;
+  // opcional: proxy de imágenes (evita CORS en html2canvas)
+  try{
+    const noProto = url.replace(/^https?:\/\//,'');
+    return `https://images.weserv.nl/?url=${encodeURIComponent(noProto)}&w=800&output=webp`;
+  }catch(_){}
+  return url;
+}
+
+function imgWithFallback(src, alt, cls){
+  const safe = proxifyPoster(src);
+  const placeholder = "https://cuervo-123.github.io/assets/poster-placeholder.png";
+  return `<img loading="lazy" referrerpolicy="no-referrer" src="${safe || placeholder}" alt="${escapeHtml(alt||'Poster')}" class="${cls||'poster'}" onerror="this.onerror=null;this.src='${placeholder}'">`;
+}
+
+function nodeOuterHTML(n){
+  const d=document.createElement('div');
+  d.appendChild(n.cloneNode(true));
+  return d.innerHTML;
+}
+
+function minimalCardHTML(inner){
+  return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Card</title>
+<meta name="color-scheme" content="dark"><style>
+body{margin:0;background:#0b0f17;color:#e9eef5;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+.stage{max-width:900px;margin:20px auto;padding:16px}
+.card{display:grid;grid-template-columns:180px 1fr;gap:16px;background:#111826;border:1px solid #233044;border-radius:14px;padding:16px}
+.poster{width:100%;height:260px;object-fit:cover;border-radius:12px;border:1px solid #1f2a3f;background:#0f1726}
+.title{font-size:20px;font-weight:800;margin:2px 0 6px}
+.imdb{margin-left:8px;color:#ffd166;font-weight:800}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin:4px 0}
+.chip{font-size:12px;color:#cbd5e1;border:1px solid #2a3850;background:#0f1726;padding:4px 8px;border-radius:999px}
+.desc{line-height:1.5;margin:10px 0;color:#dbe5f6}
+.meta{font-size:12px;color:#9fb1cb;margin-top:6px}
+.meta b{color:#cfe0ff}
+.play{display:inline-flex;align-items:center;gap:8px;background:#1f9d57;padding:10px 14px;border-radius:12px;font-weight:800;color:#fff;text-decoration:none;border:1px solid #1c8b4e}
+</style></head><body><div class="stage">${inner}</div></body></html>`;
+}
+
+function renderCard(d){
+  const tmdbBadge = d.tmdb_id ? `<span class="chip">TMDB: ${escapeHtml(d.tmdb_id)}</span>` : "";
+  const html = `
+  <div class="card">
+    <div>${imgWithFallback(d.poster, 'Poster: ' + (d.title || 'Untitled'))}</div>
+    <div>
+      <div class="title">${escapeHtml(d.title || 'Untitled')}${d.imdb ? ` <span class="imdb">IMDb: ${escapeHtml(d.imdb)}</span>` : ''}</div>
+
+      <div class="chips">
+        ${tmdbBadge}
+        ${d.quality ? `<span class="chip">${escapeHtml(d.quality)}</span>` : ''}
+        ${d.duration ? `<span class="chip">${escapeHtml(d.duration)}</span>` : ''}
+        ${d.year ? `<span class="chip">${escapeHtml(d.year)}</span>` : ''}
+        ${d.country ? `<span class="chip">${escapeHtml(d.country)}</span>` : ''}
+      </div>
+
+      ${d.plot ? `<div class="desc">${escapeHtml(d.plot)}</div>` : ''}
+
+      <div>
+        ${(d.genres || []).map(g => `<span class="chip" style="display:inline-block;margin:2px 6px 2px 0">${escapeHtml(g)}</span>`).join('')}
+      </div>
+
+      <div class="meta">
+        ${d.cast && d.cast.length ? `<b>Actor:</b> ${escapeHtml(d.cast.join(', '))} · ` : ''}
+        ${d.director ? `<b>Director:</b> ${escapeHtml(d.director)}` : ''}
+      </div>
+
+      <div class="actions">
+        ${d.play ? `<a href="${escapeHtml(d.play)}" target="_blank" rel="noopener" class="play">▶ Play Now</a>` : ''}
+        <div class="menu">
+          <button class="btn" data-act="to" data-target="m1" data-url="${escapeHtml(d.play || '')}">▶ Play M1</button>
+          <button class="btn" data-act="to" data-target="m2" data-url="${escapeHtml(d.play || '')}">▶ Play M2</button>
+          <button class="btn" data-act="to" data-target="m3" data-url="${escapeHtml(d.play || '')}">▶ Play M3</button>
+          <button class="btn" data-act="to" data-target="m4" data-url="${escapeHtml(d.play || '')}">▶ Play M4</button>
+          <button class="btn warn" data-act="delete">🗑 Eliminar</button>
+          <button class="btn" data-act="copy-html">Copiar HTML</button>
+          <button class="btn" data-act="open-view">Abrir solo-vista</button>
+          <button class="btn" data-act="copy-dataurl">Copiar Data URL</button>
+          <button class="btn" data-act="png">Descargar PNG</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+  const wrap=document.createElement('div');
+  wrap.innerHTML=html.trim();
+  const node=wrap.firstElementChild;
+  attachActions(node, d);
+  // aplicar size actual
+  const sz = document.body.dataset.size || 'md';
+  node.classList.add('size-' + sz);
+  return node;
+}
+
+function attachActions(cardNode, data){
+  cardNode.querySelectorAll('[data-act]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const act = btn.getAttribute('data-act');
+      if(act==='delete'){ cardNode.remove(); return; }
+
+      if(act==='copy-html'){
+        const html=nodeOuterHTML(cardNode);
+        await navigator.clipboard.writeText(html);
+        toast('HTML copiado ✔');
+      }else if(act==='open-view'){
+        const inner=nodeOuterHTML(cardNode);
+        const html=minimalCardHTML(inner);
+        const win=window.open('about:blank','_blank');
+        win.document.open(); win.document.write(html); win.document.close();
+      }else if(act==='copy-dataurl'){
+        const inner=nodeOuterHTML(cardNode);
+        const html=minimalCardHTML(inner);
+        const b64=btoa(unescape(encodeURIComponent(html)));
+        const dataUrl=`data:text/html;base64,${b64}`;
+        await navigator.clipboard.writeText(dataUrl);
+        toast('Data URL copiado ✔');
+      }else if(act==='png'){
+        await html2canvas(cardNode,{useCORS:true,backgroundColor:null,scale:2}).then(canvas=>{
+          const a=document.createElement('a');
+          a.download=(data.title||'card').replace(/[^\w\-]+/g,'_')+'.png';
+          a.href=canvas.toDataURL('image/png');
+          a.click();
+        });
+      }else if(act==='to'){
+        const target=btn.getAttribute('data-target');
+        const u=btn.getAttribute('data-url') || (data.play||'');
+        if(!u){ toast('No hay URL de Play'); return; }
+        $(`#url-${target}`).value = u;
+        playIn(target, u);
+      }
+    });
+  });
+}
+
+function currentData(){
+  return {
+    tmdb_id: FIELDS.tmdb.value.trim(),
+    title: FIELDS.title.value.trim(),
+    imdb: FIELDS.imdb.value.trim(),
+    quality: FIELDS.quality.value.trim(),
+    duration: FIELDS.duration.value.trim(),
+    year: FIELDS.year.value.trim(),
+    country: FIELDS.country.value.trim(),
+    plot: FIELDS.plot.value.trim(),
+    genres: FIELDS.genres.value.split(',').map(s=>s.trim()).filter(Boolean),
+    cast: FIELDS.cast.value.split(',').map(s=>s.trim()).filter(Boolean),
+    director: FIELDS.director.value.trim(),
+    poster: FIELDS.poster.value.trim(),
+    play: FIELDS.play.value.trim()
+  };
+}
+
+function generate(){
+  const d=currentData();
+  if(!d.title){
+    toast('Pon un título o usa TMDB Lookup');
+    return;
+  }
+  cards.prepend(renderCard(d));
+}
+
+/* ------------------ 4 Monitores (HLS + iframe) ------------------ */
+const MON_IDS=['m1','m2','m3','m4'];
+const monitors={};
+for(const id of MON_IDS){
+  monitors[id]={stage:$(`#stage-${id}`),input:$(`#url-${id}`),hls:null,popup:null};
+}
+function isHls(url){return /\.m3u8(\?|#|$)/i.test(url);}
+function clearStage(id){
+  const mon=monitors[id]; if(!mon) return;
+  mon.stage.innerHTML='';
+  if(mon.hls){ try{mon.hls.destroy();}catch(_){} mon.hls=null; }
+}
+function loadIntoStage(id,url){
+  const mon=monitors[id]; if(!mon) return;
+  clearStage(id);
+
+  if(isHls(url)){
+    const v=document.createElement('video');
+    v.setAttribute('playsinline',''); v.setAttribute('controls','');
+    v.autoplay=true; v.muted=true;
+    mon.stage.appendChild(v);
+
+    if(Hls.isSupported()){
+      const h=new Hls({lowLatencyMode:true,backBufferLength:30});
+      h.loadSource(url); h.attachMedia(v);
+      h.on(Hls.Events.MANIFEST_PARSED,()=>{v.play().catch(()=>{});});
+      mon.hls=h;
+    }else if(v.canPlayType('application/vnd.apple.mpegURL')){
+      v.src=url; v.addEventListener('loadedmetadata',()=>v.play().catch(()=>{}));
+    }else{
+      mon.stage.innerHTML=`<div class="hint" style="padding:12px;text-align:center">Tu navegador no soporta HLS.</div>`;
+    }
+  }else{
+    const f=document.createElement('iframe');
+    f.allow="autoplay; fullscreen; picture-in-picture; encrypted-media";
+    f.referrerPolicy="no-referrer";
+    f.src=url;
+    mon.stage.appendChild(f);
+  }
+}
+function playIn(id,url){ if(!url) return; loadIntoStage(id,url); }
+function requestFS(el){ (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen||el.mozRequestFullScreen)?.call(el); }
+
+document.getElementById('monitors').addEventListener('click',(e)=>{
+  const btn=e.target.closest('[data-act]'); if(!btn) return;
+  const act=btn.getAttribute('data-act');
+  const id=btn.getAttribute('data-target');
+  const mon=monitors[id]; if(!mon) return;
+
+  if(act==='play'){
+    const url=mon.input.value.trim();
+    playIn(id,url);
+  }else if(act==='fs'){
+    requestFS(mon.stage);
+  }else if(act==='stop'){
+    clearStage(id);
+    mon.stage.innerHTML='<div style="opacity:.65;text-align:center;padding:12px"><b>Detenido</b></div>';
+  }else if(act==='pop'){
+    const url=mon.input.value.trim();
+    if(!url){toast('Pega una URL primero');return;}
+    try{mon.popup?.close?.();}catch(_){}
+    mon.popup=window.open(url,'_blank');
+  }
+});
+
+/* ------------------ UI ------------------ */
+document.querySelectorAll('[data-size]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.body.dataset.size=b.getAttribute('data-size');
+    document.querySelectorAll('.card').forEach(c=>{
+      c.classList.remove('size-sm','size-md','size-lg');
+      c.classList.add('size-'+(document.body.dataset.size||'md'));
+    });
+  });
+});
+$('#btnGenerate').addEventListener('click', generate);
+
+$('#btnParse').addEventListener('click',()=>{
+  const parsed=parseRaw(raw.value||'');
+  fillFields(parsed);
+  toast('Campos autocompletados ✔');
+});
+
+$('#btnTMDB').addEventListener('click', lookupTMDB);
+
+$('#btnDemo').addEventListener('click',()=>{
+  raw.value =
+`tmdb_id: 1178602
+Play: https://example.com/embed-or-m3u8
+
+(1) Pega tu TMDB API Key arriba
+(2) Click "Buscar en TMDB" para auto poster + datos
+(3) Click "Generar tarjeta"`;
+  $('#btnParse').click();
+});
+
+document.addEventListener('keydown',(e)=>{
+  if((e.metaKey||e.ctrlKey) && e.key==='Enter'){
+    e.preventDefault();
+    generate();
+  }
+});
+</script>
+</body>
+</html>
